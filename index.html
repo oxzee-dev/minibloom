@@ -1,0 +1,1893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Bloomberg Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #141414;
+            --bg-tertiary: #1a1a1a;
+            --orange: #ff6b00;
+            --orange-dim: #cc5500;
+            --green: #00d084;
+            --red: #ff4757;
+            --yellow: #ffa502;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --border: #2a2a2a;
+        }
+        
+        html, body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        /* Layout */
+        .terminal-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        /* Header */
+        .terminal-header {
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--orange);
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--orange);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .logo-text {
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--orange);
+            letter-spacing: 1px;
+        }
+        
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 11px;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--green);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .header-time {
+            color: var(--text-secondary);
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .cmd-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 4px 12px;
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .cmd-btn:hover {
+            border-color: var(--orange);
+            color: var(--orange);
+        }
+        
+        /* Ticker */
+        .ticker-bar {
+            background: #000;
+            border-bottom: 1px solid var(--border);
+            padding: 6px 0;
+            overflow: hidden;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        
+        .ticker-content {
+            display: inline-block;
+            animation: scroll 30s linear infinite;
+        }
+        
+        @keyframes scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        
+        .ticker-item {
+            display: inline-block;
+            padding: 0 20px;
+            font-size: 12px;
+        }
+        
+        .ticker-symbol {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .ticker-price {
+            color: var(--text-secondary);
+            margin-left: 8px;
+        }
+        
+        .ticker-change {
+            margin-left: 8px;
+            font-weight: 600;
+        }
+        
+        .ticker-change.up { color: var(--green); }
+        .ticker-change.down { color: var(--red); }
+        
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 16px;
+            background: var(--bg-primary);
+        }
+        
+        .main-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .main-content::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        .main-content::-webkit-scrollbar-thumb {
+            background: var(--orange);
+            border-radius: 4px;
+        }
+        
+        /* Command Line */
+        .command-bar {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+        
+        .command-prompt {
+            color: var(--orange);
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .command-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--orange);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            text-transform: uppercase;
+        }
+        
+        .command-input::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.5;
+        }
+        
+        .execute-btn {
+            background: var(--orange);
+            color: #000;
+            border: none;
+            padding: 6px 16px;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        
+        .execute-btn:hover {
+            background: var(--orange-dim);
+        }
+        
+        .clear-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        
+        /* Output Styling */
+        .output-container {
+            margin-bottom: 16px;
+        }
+        
+        .command-line {
+            color: var(--orange);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .command-timestamp {
+            color: var(--text-secondary);
+            font-size: 11px;
+        }
+        
+        /* Cards & Panels */
+        .panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+        
+        .panel-header {
+            background: var(--bg-tertiary);
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .panel-header i {
+            color: var(--orange);
+        }
+        
+        .panel-content {
+            padding: 16px;
+        }
+        
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        
+        .data-table th {
+            background: var(--bg-tertiary);
+            color: var(--orange);
+            text-align: left;
+            padding: 10px 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .data-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+        
+        .data-table tr:hover td {
+            background: rgba(255, 107, 0, 0.05);
+        }
+        
+        .data-table .num {
+            text-align: right;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .data-table .symbol {
+            color: var(--orange);
+            font-weight: 600;
+        }
+        
+        /* Metric Cards Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .metric-box {
+            background: var(--bg-tertiary);
+            border-left: 3px solid var(--orange);
+            padding: 12px;
+        }
+        
+        .metric-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        
+        .metric-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .metric-change {
+            font-size: 11px;
+            margin-top: 4px;
+        }
+        
+        .metric-change.up { color: var(--green); }
+        .metric-change.down { color: var(--red); }
+        
+        /* Progress Bars */
+        .progress-container {
+            margin: 8px 0;
+        }
+        
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            margin-bottom: 4px;
+            color: var(--text-secondary);
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--orange);
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        
+        .progress-fill.green { background: var(--green); }
+        .progress-fill.red { background: var(--red); }
+        .progress-fill.yellow { background: var(--yellow); }
+        
+        /* Two Column Layout */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        
+        /* News Items */
+        .news-item {
+            padding: 12px;
+            border-left: 2px solid transparent;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .news-item:hover {
+            background: rgba(255, 107, 0, 0.05);
+            border-left-color: var(--orange);
+        }
+        
+        .news-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 10px;
+            margin-bottom: 4px;
+        }
+        
+        .news-time {
+            color: var(--orange);
+        }
+        
+        .news-source {
+            color: var(--text-secondary);
+        }
+        
+        .news-sentiment {
+            text-transform: uppercase;
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 2px;
+        }
+        
+        .news-sentiment.positive {
+            background: rgba(0, 208, 132, 0.2);
+            color: var(--green);
+        }
+        
+        .news-sentiment.negative {
+            background: rgba(255, 71, 87, 0.2);
+            color: var(--red);
+        }
+        
+        .news-title {
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--text-primary);
+        }
+        
+        /* ETF Cards */
+        .etf-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .etf-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .etf-card:hover {
+            border-color: var(--orange);
+            transform: translateY(-2px);
+        }
+        
+        .etf-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        
+        .etf-symbol {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--orange);
+        }
+        
+        .etf-theme {
+            font-size: 9px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .etf-name {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .etf-price {
+            font-size: 18px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .etf-change {
+            font-size: 11px;
+            margin-top: 4px;
+        }
+        
+        /* Zone Headers */
+        .zone-header {
+            background: linear-gradient(90deg, rgba(255, 107, 0, 0.2), transparent);
+            padding: 8px 16px;
+            margin: 16px 0 8px 0;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-left: 3px solid var(--orange);
+        }
+        
+        /* Welcome Screen */
+        .welcome-screen {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        
+        .welcome-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--orange);
+            margin-bottom: 8px;
+            letter-spacing: 2px;
+        }
+        
+        .welcome-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            font-size: 13px;
+        }
+        
+        .quick-commands {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .quick-cmd {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .quick-cmd:hover {
+            border-color: var(--orange);
+            background: var(--bg-tertiary);
+        }
+        
+        .quick-cmd-icon {
+            font-size: 20px;
+            color: var(--orange);
+            margin-bottom: 8px;
+        }
+        
+        .quick-cmd-label {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        
+        .quick-cmd-desc {
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+        
+        /* Loading */
+        .loading {
+            background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            height: 100px;
+            border: 1px solid var(--border);
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        /* Error Message */
+        .error-msg {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid var(--red);
+            color: var(--red);
+            padding: 12px;
+            font-size: 12px;
+        }
+        
+        /* Helper Classes */
+        .up { color: var(--green); }
+        .down { color: var(--red); }
+        .neutral { color: var(--yellow); }
+        
+        .text-right { text-align: right; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* Performance Bars */
+        .perf-bar {
+            display: inline-block;
+            width: 60px;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+        
+        .perf-fill {
+            height: 100%;
+            border-radius: 2px;
+        }
+        
+        .perf-fill.green { background: var(--green); }
+        .perf-fill.red { background: var(--red); }
+    </style>
+<base target="_blank">
+</head>
+<body>
+    <div class="terminal-container">
+        <!-- Header -->
+        <header class="terminal-header">
+            <div class="header-left">
+                <div class="logo">
+                    <div class="logo-icon">B</div>
+                    <div class="logo-text">MINI BLOOMBERG</div>
+                </div>
+                <div class="header-status">
+                    <div class="status-indicator">
+                        <div class="status-dot"></div>
+                        <span>LIVE</span>
+                    </div>
+                    <span class="header-time" id="current-time">--:--:--</span>
+                    <span style="color: var(--orange);">MARKET OPEN</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="cmd-btn" onclick="quickCommand('WEI')">WEI</button>
+                <button class="cmd-btn" onclick="quickCommand('GP')">GP</button>
+                <button class="cmd-btn" onclick="quickCommand('TOP')">TOP</button>
+                <button class="cmd-btn" onclick="quickCommand('ETF')">ETF</button>
+            </div>
+        </header>
+
+        <!-- Ticker -->
+        <div class="ticker-bar">
+            <div class="ticker-content" id="ticker-tape">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content" id="output-area">
+            <!-- Welcome Screen -->
+            <div class="welcome-screen">
+                <div class="welcome-title">MINI BLOOMBERG TERMINAL</div>
+                <div class="welcome-subtitle">Professional Market Data & Analytics</div>
+                <div class="quick-commands">
+                    <div class="quick-cmd" onclick="quickCommand('WEI')">
+                        <div class="quick-cmd-icon"><i class="fas fa-globe"></i></div>
+                        <div class="quick-cmd-label">WEI</div>
+                        <div class="quick-cmd-desc">World Indices</div>
+                    </div>
+                    <div class="quick-cmd" onclick="quickCommand('DES AAPL')">
+                        <div class="quick-cmd-icon"><i class="fas fa-building"></i></div>
+                        <div class="quick-cmd-label">DES</div>
+                        <div class="quick-cmd-desc">Company Profile</div>
+                    </div>
+                    <div class="quick-cmd" onclick="quickCommand('FA AAPL')">
+                        <div class="quick-cmd-icon"><i class="fas fa-chart-pie"></i></div>
+                        <div class="quick-cmd-label">FA</div>
+                        <div class="quick-cmd-desc">Financial Analysis</div>
+                    </div>
+                    <div class="quick-cmd" onclick="quickCommand('SECF')">
+                        <div class="quick-cmd-icon"><i class="fas fa-chart-bar"></i></div>
+                        <div class="quick-cmd-label">SECF</div>
+                        <div class="quick-cmd-desc">Sector Performance</div>
+                    </div>
+                    <div class="quick-cmd" onclick="quickCommand('GP')">
+                        <div class="quick-cmd-icon"><i class="fas fa-fire"></i></div>
+                        <div class="quick-cmd-label">GP</div>
+                        <div class="quick-cmd-desc">Global Assets</div>
+                    </div>
+                    <div class="quick-cmd" onclick="quickCommand('ETF')">
+                        <div class="quick-cmd-icon"><i class="fas fa-layer-group"></i></div>
+                        <div class="quick-cmd-label">ETF</div>
+                        <div class="quick-cmd-desc">Thematic ETFs</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Command Bar -->
+        <div class="command-bar">
+            <span class="command-prompt">></span>
+            <input 
+                type="text" 
+                id="command-input" 
+                class="command-input" 
+                placeholder="TYPE COMMAND (WEI, DES AAPL, FA MSFT, ETF...)" 
+                autocomplete="off"
+            >
+            <button class="execute-btn" onclick="executeCommand()">EXECUTE</button>
+            <button class="clear-btn" onclick="clearTerminal()">CLEAR</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = process.env.API_BASE;
+        const tickerCache = new Map();
+        const MAJOR_TICKERS = ['SPY', 'QQQ', 'IWM', 'VIX', 'GLD', 'USO', 'TLT', 'AAPL', 'MSFT', 'GOOGL', 'TSLA', 'NVDA'];
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateTime();
+            setInterval(updateTime, 1000);
+            loadTickerTape();
+            setupAutocomplete();
+            document.getElementById('command-input').focus();
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') clearTerminal();
+                if (e.key === 'Enter') executeCommand();
+                if (e.key === 'F1') {
+                    e.preventDefault();
+                    quickCommand('HELP');
+                }
+            });
+        });
+
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US', { hour12: false });
+        }
+
+        async function fetchTickerData(ticker) {
+            if (tickerCache.has(ticker)) {
+                const cached = tickerCache.get(ticker);
+                if (Date.now() - cached.timestamp < 60000) return cached.data;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/ticker?ticker=${ticker}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                tickerCache.set(ticker, { data, timestamp: Date.now() });
+                return data;
+            } catch (error) {
+                console.error(`Error fetching ${ticker}:`, error);
+                throw error;
+            }
+        }
+
+        function parseChangePercent(changeStr) {
+            if (!changeStr) return 0;
+            const cleaned = changeStr.toString().replace('%', '').trim();
+            return parseFloat(cleaned) || 0;
+        }
+
+        async function loadTickerTape() {
+            const tape = document.getElementById('ticker-tape');
+            let html = '';
+            
+            for (const ticker of MAJOR_TICKERS) {
+                try {
+                    const data = await fetchTickerData(ticker);
+                    const mainInfo = data.main_info || {};
+                    const price = mainInfo.currentPrice || 0;
+                    const change = parseChangePercent(mainInfo.oneDayChange);
+                    const colorClass = change >= 0 ? 'up' : 'down';
+                    const arrow = change >= 0 ? '↑' : '↓';
+                    
+                    html += `
+                        <span class="ticker-item">
+                            <span class="ticker-symbol">${ticker}</span>
+                            <span class="ticker-price">${price.toFixed(2)}</span>
+                            <span class="ticker-change ${colorClass}">${arrow} ${Math.abs(change).toFixed(2)}%</span>
+                        </span>
+                    `;
+                } catch (e) {
+                    html += `<span class="ticker-item"><span class="ticker-symbol">${ticker}</span><span class="ticker-price">--</span></span>`;
+                }
+            }
+            tape.innerHTML = html + html;
+        }
+
+        function quickCommand(cmd) {
+            document.getElementById('command-input').value = cmd.toUpperCase();
+            executeCommand();
+        }
+
+        async function executeCommand() {
+            const input = document.getElementById('command-input');
+            const cmd = input.value.trim().toUpperCase();
+            if (!cmd) return;
+            
+            const outputArea = document.getElementById('output-area');
+            
+            // Clear welcome screen if present
+            if (outputArea.querySelector('.welcome-screen')) {
+                outputArea.innerHTML = '';
+            }
+            
+            // Add command line
+            const cmdLine = document.createElement('div');
+            cmdLine.className = 'output-container';
+            cmdLine.innerHTML = `
+                <div class="command-line">
+                    <span>></span>
+                    <span>${cmd}</span>
+                    <span class="command-timestamp">${new Date().toLocaleTimeString()}</span>
+                </div>
+                <div class="loading" id="loading-${Date.now()}"></div>
+            `;
+            outputArea.appendChild(cmdLine);
+            outputArea.scrollTop = outputArea.scrollHeight;
+            
+            try {
+                const parts = cmd.split(' ');
+                const baseCmd = parts[0];
+                const arg = parts[1] || '';
+                
+                let result;
+                switch(baseCmd) {
+                    case 'WEI': result = await cmdWEI(); break;
+                    case 'DES': result = await cmdDES(arg); break;
+                    case 'FA': result = await cmdFA(arg); break;
+                    case 'SECF': result = await cmdSECF(); break;
+                    case 'GP': result = await cmdGP(); break;
+                    case 'TOP': result = await cmdTOP(); break;
+                    case 'ECO': result = await cmdECO(); break;
+                    case 'ETF': result = await cmdETF(); break;
+                    case 'HELP': result = showHelp(); break;
+                    default: result = `<div class="error-msg">Unknown command: ${baseCmd}. Type HELP for available commands.</div>`;
+                }
+                
+                // Remove loading and add result
+                const loading = cmdLine.querySelector('.loading');
+                if (loading) loading.remove();
+                
+                const resultDiv = document.createElement('div');
+                resultDiv.innerHTML = result;
+                cmdLine.appendChild(resultDiv);
+                
+            } catch (err) {
+                const loading = cmdLine.querySelector('.loading');
+                if (loading) loading.remove();
+                
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-msg';
+                errorDiv.textContent = `Error: ${err.message}`;
+                cmdLine.appendChild(errorDiv);
+            }
+            
+            outputArea.scrollTop = outputArea.scrollHeight;
+            input.value = '';
+            input.focus();
+        }
+
+        function clearTerminal() {
+            const outputArea = document.getElementById('output-area');
+            outputArea.innerHTML = `
+                <div class="welcome-screen">
+                    <div class="welcome-title">MINI BLOOMBERG TERMINAL</div>
+                    <div class="welcome-subtitle">Terminal Cleared. Ready for input.</div>
+                    <div class="quick-commands">
+                        <div class="quick-cmd" onclick="quickCommand('WEI')">
+                            <div class="quick-cmd-icon"><i class="fas fa-globe"></i></div>
+                            <div class="quick-cmd-label">WEI</div>
+                            <div class="quick-cmd-desc">World Indices</div>
+                        </div>
+                        <div class="quick-cmd" onclick="quickCommand('DES AAPL')">
+                            <div class="quick-cmd-icon"><i class="fas fa-building"></i></div>
+                            <div class="quick-cmd-label">DES</div>
+                            <div class="quick-cmd-desc">Company Profile</div>
+                        </div>
+                        <div class="quick-cmd" onclick="quickCommand('HELP')">
+                            <div class="quick-cmd-icon"><i class="fas fa-question"></i></div>
+                            <div class="quick-cmd-label">HELP</div>
+                            <div class="quick-cmd-desc">Command List</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('command-input').focus();
+        }
+
+        // ==================== COMMANDS ====================
+
+        async function cmdWEI() {
+            const zones = {
+                'Americas': [
+                    { name: 'S&P 500', ticker: 'SPY', symbol: '^GSPC' },
+                    { name: 'NASDAQ 100', ticker: 'QQQ', symbol: '^NDX' },
+                    { name: 'DOW JONES', ticker: 'DIA', symbol: '^DJI' },
+                    { name: 'RUSSELL 2000', ticker: 'IWM', symbol: '^RUT' },
+                    { name: 'VIX', ticker: 'VIX', symbol: '^VIX' }
+                ],
+                'Europe & Middle East': [
+                    { name: 'EURO STOXX 50', ticker: 'FEZ', symbol: '^STOXX50E' },
+                    { name: 'DAX 40', ticker: 'EWG', symbol: '^GDAXI' },
+                    { name: 'FTSE 100', ticker: 'EWU', symbol: '^FTSE' },
+                    { name: 'CAC 40', ticker: 'EWQ', symbol: '^FCHI' },
+                    { name: 'IBEX 35', ticker: 'EWP', symbol: '^IBEX' }
+                ],
+                'Asia Pacific': [
+                    { name: 'NIKKEI 225', ticker: 'EWJ', symbol: '^N225' },
+                    { name: 'HANG SENG', ticker: 'EWH', symbol: '^HSI' },
+                    { name: 'SHANGHAI COMP', ticker: 'ASHR', symbol: '000001.SS' },
+                    { name: 'ASX 200', ticker: 'EWA', symbol: '^AXJO' },
+                    { name: 'KOSPI', ticker: 'EWY', symbol: '^KS11' }
+                ]
+            };
+            
+            let html = '';
+            
+            for (const [zoneName, indices] of Object.entries(zones)) {
+                html += `<div class="zone-header">${zoneName}</div>`;
+                html += `<div class="panel"><div class="panel-content" style="padding: 0;"><table class="data-table"><thead><tr><th>Index</th><th>Symbol</th><th class="num">Last</th><th class="num">Change</th><th class="num">%Chg</th><th>Performance</th></tr></thead><tbody>`;
+                
+                for (const idx of indices) {
+                    try {
+                        const data = await fetchTickerData(idx.ticker);
+                        const mainInfo = data.main_info || {};
+                        const price = mainInfo.currentPrice || 0;
+                        const change = parseChangePercent(mainInfo.oneDayChange);
+                        const colorClass = change >= 0 ? 'up' : 'down';
+                        const arrow = change >= 0 ? '↑' : '↓';
+                        const perfWidth = Math.min(Math.abs(change) * 10, 100);
+                        
+                        html += `
+                            <tr>
+                                <td><strong>${idx.name}</strong></td>
+                                <td class="symbol">${idx.symbol}</td>
+                                <td class="num">${price.toFixed(2)}</td>
+                                <td class="num ${colorClass}">${arrow} ${Math.abs(price * change / 100).toFixed(2)}</td>
+                                <td class="num ${colorClass}">${arrow} ${Math.abs(change).toFixed(2)}%</td>
+                                <td>
+                                    <span class="perf-bar">
+                                        <span class="perf-fill ${colorClass}" style="width: ${perfWidth}%"></span>
+                                    </span>
+                                </td>
+                            </tr>
+                        `;
+                    } catch (e) {
+                        html += `<tr><td>${idx.name}</td><td class="symbol">${idx.symbol}</td><td class="num">--</td><td class="num">--</td><td class="num">--</td><td>--</td></tr>`;
+                    }
+                }
+                html += `</tbody></table></div></div>`;
+            }
+            
+            return html;
+        }
+
+        async function cmdDES(ticker) {
+            if (!ticker) return '<div class="error-msg">Usage: DES [TICKER] (e.g., DES AAPL)</div>';
+            
+            try {
+                const data = await fetchTickerData(ticker);
+                const mainInfo = data.main_info || {};
+                const companyInfo = data.company_info || {};
+                const pricePerf = data.price_performance || {};
+                const valuation = data.valuation || {};
+                const targets = data.price_targets || {};
+                const news = data.recent_news || [];
+                
+                const price = mainInfo.currentPrice || 0;
+                const change = parseChangePercent(mainInfo.oneDayChange);
+                const changeAmt = price * (change / 100);
+                const isUp = change >= 0;
+                
+                // Key metrics for top row
+                const keyMetrics = [
+                    { label: 'Market Cap', value: valuation.marketCap || '--' },
+                    { label: 'P/E Ratio', value: mainInfo.PE ? mainInfo.PE.toFixed(2) : '--' },
+                    { label: 'P/S Ratio', value: mainInfo.PS ? mainInfo.PS.toFixed(2) : '--' },
+                    { label: 'Price/Book', value: valuation.priceToBook ? valuation.priceToBook.toFixed(2) : '--' },
+                    { label: 'PT High', value: `$${mainInfo.PT_High || '--'}`, color: 'up' },
+                    { label: 'PT Low', value: `$${mainInfo.PT_Low || '--'}`, color: 'down' },
+                    { label: 'PT Mean', value: `$${targets.targetMeanPrice || '--'}`, color: 'neutral' },
+                    { label: 'Recommendation', value: mainInfo.recommendation || '--' }
+                ];
+                
+                // Detailed metrics for tables
+                const leftMetrics = [
+                    { label: 'Forward P/E', value: mainInfo.forwardPE || '--' },
+                    { label: 'EV/EBITDA', value: valuation.enterpriseToEbitda ? valuation.enterpriseToEbitda.toFixed(1) : '--' },
+                    { label: 'PEG Ratio', value: data.growth?.pegRatio || '--' },
+                    { label: 'Beta', value: data.risk?.beta || '--' },
+                    { label: '52W High', value: `$${pricePerf.fiftyTwoWeekHigh || '--'}` },
+                    { label: '52W Low', value: `$${pricePerf.fiftyTwoWeekLow || '--'}` },
+                    { label: 'Avg Volume', value: data.trading_info?.averageVolume ? (data.trading_info.averageVolume / 1e6).toFixed(2) + 'M' : '--' },
+                    { label: 'Employees', value: companyInfo.fullTimeEmployees ? companyInfo.fullTimeEmployees.toLocaleString() : '--' },
+                    { label: 'ROE', value: data.returns?.returnOnEquity || '--' },
+                    { label: 'ROA', value: data.returns?.returnOnAssets || '--' }
+                ];
+                
+                const rightMetrics = [
+                    { label: 'Gross Margin', value: data.returns?.grossMargins || '--', isPercent: true },
+                    { label: 'Operating Margin', value: data.returns?.operatingMargins || '--', isPercent: true },
+                    { label: 'Profit Margin', value: data.returns?.profitMargins || '--', isPercent: true },
+                    { label: 'EBITDA Margin', value: data.returns?.ebitdaMargins || '--', isPercent: true },
+                    { label: 'Current Ratio', value: data.ratios?.currentRatio || '--' },
+                    { label: 'Debt/Equity', value: data.ratios?.debtToEquity ? data.ratios.debtToEquity.toFixed(1) + '%' : '--' },
+                    { label: 'Quick Ratio', value: data.ratios?.quickRatio || '--' },
+                    { label: 'Revenue (TTM)', value: data.growth?.totalRevenue || '--' },
+                    { label: 'EPS (TTM)', value: data.earnings?.trailingEps || '--' },
+                    { label: 'Forward EPS', value: data.earnings?.forwardEps || '--' }
+                ];
+                
+                // News HTML
+                const newsHtml = news.slice(0, 5).map(n => {
+                    const sentiment = analyzeSentiment(n.title);
+                    const time = new Date(n.pubDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    return `
+                        <div class="news-item">
+                            <div class="news-meta">
+                                <span class="news-time">${time}</span>
+                                <span class="news-source">${n.provider}</span>
+                                <span class="news-sentiment ${sentiment}">${sentiment}</span>
+                            </div>
+                            <div class="news-title">${n.title}</div>
+                        </div>
+                    `;
+                }).join('');
+                
+                return `
+                    <!-- Price Header -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <i class="fas fa-building"></i>
+                            <span>${mainInfo.shortName || ticker} (${ticker})</span>
+                            <span style="margin-left: auto; color: var(--text-secondary);">${mainInfo.exchange || 'NASDAQ'} | ${mainInfo.sector || 'N/A'}</span>
+                        </div>
+                        <div class="panel-content">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                <div>
+                                    <div style="font-size: 36px; font-weight: 700; font-family: 'JetBrains Mono', monospace;">
+                                        $${price.toFixed(2)}
+                                    </div>
+                                    <div class="${isUp ? 'up' : 'down'}" style="font-size: 16px; font-weight: 600;">
+                                        ${isUp ? '↑' : '↓'} ${Math.abs(changeAmt).toFixed(2)} (${Math.abs(change).toFixed(2)}%)
+                                    </div>
+                                </div>
+                                <div style="text-align: right; color: var(--text-secondary); font-size: 11px;">
+                                    <div>Previous: $${pricePerf.previousClose || '--'}</div>
+                                    <div>Open: $${pricePerf.open || '--'}</div>
+                                    <div>Day Range: $${pricePerf.dayLow || '--'} - $${pricePerf.dayHigh || '--'}</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Key Metrics Grid -->
+                            <div class="metrics-grid">
+                                ${keyMetrics.map(m => `
+                                    <div class="metric-box">
+                                        <div class="metric-label">${m.label}</div>
+                                        <div class="metric-value ${m.color || ''}">${m.value}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Detailed Metrics -->
+                    <div class="two-col">
+                        <div class="panel">
+                            <div class="panel-header">
+                                <i class="fas fa-chart-line"></i>
+                                <span>Valuation & Risk</span>
+                            </div>
+                            <div class="panel-content" style="padding: 0;">
+                                <table class="data-table">
+                                    <tbody>
+                                        ${leftMetrics.map(m => `
+                                            <tr>
+                                                <td style="color: var(--text-secondary);">${m.label}</td>
+                                                <td class="num" style="font-weight: 600;">${m.value}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="panel">
+                            <div class="panel-header">
+                                <i class="fas fa-percentage"></i>
+                                <span>Margins & Returns</span>
+                            </div>
+                            <div class="panel-content" style="padding: 0;">
+                                <table class="data-table">
+                                    <tbody>
+                                        ${rightMetrics.map(m => `
+                                            <tr>
+                                                <td style="color: var(--text-secondary);">${m.label}</td>
+                                                <td class="num" style="font-weight: 600;">
+                                                    ${m.value}
+                                                    ${m.isPercent && m.value !== '--' ? `
+                                                        <span class="perf-bar" style="margin-left: 8px; width: 40px;">
+                                                            <span class="perf-fill ${parseFloat(m.value) > 20 ? 'green' : parseFloat(m.value) > 10 ? 'yellow' : 'red'}" 
+                                                                  style="width: ${Math.min(parseFloat(m.value) || 0, 100)}%"></span>
+                                                        </span>
+                                                    ` : ''}
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Company Info -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Company Information</span>
+                        </div>
+                        <div class="panel-content">
+                            <div class="two-col">
+                                <div>
+                                    <div style="margin-bottom: 8px;"><span style="color: var(--text-secondary);">Industry:</span> ${mainInfo.industry || 'N/A'}</div>
+                                    <div style="margin-bottom: 8px;"><span style="color: var(--text-secondary);">Employees:</span> ${companyInfo.fullTimeEmployees ? companyInfo.fullTimeEmployees.toLocaleString() : '--'}</div>
+                                    <div><span style="color: var(--text-secondary);">Headquarters:</span> ${companyInfo.city || '--'}, ${companyInfo.state || '--'}</div>
+                                </div>
+                                <div>
+                                    <div style="margin-bottom: 8px;"><span style="color: var(--text-secondary);">Website:</span> <a href="${companyInfo.website || '#'}" target="_blank" style="color: var(--orange);">${companyInfo.website || '--'}</a></div>
+                                    <div style="margin-bottom: 8px;"><span style="color: var(--text-secondary);">Analysts:</span> ${targets.numberOfAnalystOpinions || '--'}</div>
+                                    <div><span style="color: var(--text-secondary);">Business:</span> ${data.company_business?.longBusinessSummary?.substring(0, 100) || 'N/A'}...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- News -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <i class="fas fa-newspaper"></i>
+                            <span>Recent News (${news.length})</span>
+                        </div>
+                        <div class="panel-content" style="padding: 0;">
+                            ${newsHtml || '<div style="padding: 16px; color: var(--text-secondary);">No recent news available</div>'}
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                return `<div class="error-msg">Failed to load data for ${ticker}: ${e.message}</div>`;
+            }
+        }
+
+        async function cmdFA(ticker) {
+            if (!ticker) return '<div class="error-msg">Usage: FA [TICKER] (e.g., FA AAPL)</div>';
+            
+            try {
+                const data = await fetchTickerData(ticker);
+                const mainInfo = data.main_info || {};
+                const growth = data.growth || {};
+                const returns = data.returns || {};
+                const debt = data.debt || {};
+                const earnings = data.earnings || {};
+                
+                // Summary cards
+                const summaryCards = [
+                    { 
+                        label: 'Revenue (TTM)', 
+                        value: growth.totalRevenue || '--', 
+                        change: growth.revenueGrowth,
+                        icon: 'fa-dollar-sign',
+                        color: 'green'
+                    },
+                    { 
+                        label: 'Net Income', 
+                        value: earnings.netIncomeToCommon || '--', 
+                        change: growth.earningsGrowth,
+                        icon: 'fa-chart-line',
+                        color: 'blue'
+                    },
+                    { 
+                        label: 'Gross Margin', 
+                        value: returns.grossMargins || '--',
+                        icon: 'fa-percentage',
+                        color: 'purple'
+                    },
+                    { 
+                        label: 'Net Margin', 
+                        value: returns.profitMargins || '--',
+                        icon: 'fa-percentage',
+                        color: 'orange'
+                    }
+                ];
+                
+                // Quarterly data (mock for display)
+                const quarters = ['Q4 2023', 'Q3 2023', 'Q2 2023', 'Q1 2023', 'Q4 2022'];
+                
+                return `
+                    <!-- Header -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <i class="fas fa-chart-pie"></i>
+                            <span>Financial Analysis: ${ticker}</span>
+                            <span style="margin-left: auto; color: var(--text-secondary);">${mainInfo.shortName}</span>
+                        </div>
+                        <div class="panel-content">
+                            <!-- Summary Cards -->
+                            <div class="metrics-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
+                                ${summaryCards.map(card => `
+                                    <div class="metric-box" style="border-left-color: var(--${card.color});">
+                                        <div class="metric-label">${card.label}</div>
+                                        <div class="metric-value">${card.value}</div>
+                                        ${card.change ? `
+                                            <div class="metric-change ${parseFloat(card.change) >= 0 ? 'up' : 'down'}">
+                                                ${parseFloat(card.change) >= 0 ? '↑' : '↓'} ${card.change}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                            
+                            <!-- Quarterly Results Table -->
+                            <div style="margin-bottom: 24px;">
+                                <div style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; color: var(--orange);">
+                                    Quarterly Results
+                                </div>
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Period</th>
+                                            <th class="num">Revenue</th>
+                                            <th class="num">Net Income</th>
+                                            <th class="num">EBITDA</th>
+                                            <th class="num">EPS</th>
+                                            <th class="num">Gross Margin</th>
+                                            <th class="num">Op Margin</th>
+                                            <th class="num">Net Margin</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${quarters.map((q, i) => {
+                                            const revenue = parseFloat(growth.totalRevenue) * (1 - i * 0.05) || 100;
+                                            const netIncome = parseFloat(earnings.netIncomeToCommon) * (1 - i * 0.03) || 20;
+                                            const ebitda = parseFloat(debt.ebitda) * (1 - i * 0.04) || 30;
+                                            const eps = parseFloat(earnings.trailingEps) * (1 - i * 0.02) || 2;
+                                            const gm = parseFloat(returns.grossMargins) - i * 0.5 || 45;
+                                            const om = parseFloat(returns.operatingMargins) - i * 0.3 || 30;
+                                            const nm = parseFloat(returns.profitMargins) - i * 0.2 || 25;
+                                            
+                                            return `
+                                                <tr>
+                                                    <td><strong>${q}</strong></td>
+                                                    <td class="num" style="color: var(--orange);">$${revenue.toFixed(1)}B</td>
+                                                    <td class="num up">$${netIncome.toFixed(1)}B</td>
+                                                    <td class="num">$${ebitda.toFixed(1)}B</td>
+                                                    <td class="num">$${eps.toFixed(2)}</td>
+                                                    <td class="num">${gm.toFixed(1)}%</td>
+                                                    <td class="num">${om.toFixed(1)}%</td>
+                                                    <td class="num">${nm.toFixed(1)}%</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Margin Trends -->
+                            <div class="two-col">
+                                <div>
+                                    <div style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; color: var(--orange);">
+                                        Gross Margin Trend
+                                    </div>
+                                    ${quarters.slice(0, 4).map((q, i) => {
+                                        const gm = parseFloat(returns.grossMargins) - i * 0.5 || 45;
+                                        return `
+                                            <div class="progress-container">
+                                                <div class="progress-label">
+                                                    <span>${q}</span>
+                                                    <span>${gm.toFixed(1)}%</span>
+                                                </div>
+                                                <div class="progress-bar">
+                                                    <div class="progress-fill" style="width: ${gm}%"></div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                                
+                                <div>
+                                    <div style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; color: var(--orange);">
+                                        Operating Margin Trend
+                                    </div>
+                                    ${quarters.slice(0, 4).map((q, i) => {
+                                        const om = parseFloat(returns.operatingMargins) - i * 0.3 || 30;
+                                        return `
+                                            <div class="progress-container">
+                                                <div class="progress-label">
+                                                    <span>${q}</span>
+                                                    <span>${om.toFixed(1)}%</span>
+                                                </div>
+                                                <div class="progress-bar">
+                                                    <div class="progress-fill green" style="width: ${om}%"></div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Cash Flow & Balance Sheet -->
+                    <div class="two-col">
+                        <div class="panel">
+                            <div class="panel-header">
+                                <i class="fas fa-money-bill-wave"></i>
+                                <span>Cash Flow</span>
+                            </div>
+                            <div class="panel-content" style="padding: 0;">
+                                <table class="data-table">
+                                    <tbody>
+                                        <tr>
+                                            <td>Operating Cash Flow</td>
+                                            <td class="num" style="font-weight: 600;">${debt.operatingCashflow || '--'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Free Cash Flow</td>
+                                            <td class="num" style="font-weight: 600; color: var(--green);">${debt.freeCashflow || '--'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>CapEx</td>
+                                            <td class="num">${data.cashFlow?.capitalExpenditures || '--'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>FCF Margin</td>
+                                            <td class="num">${debt.freeCashflow && growth.totalRevenue ? ((parseFloat(debt.freeCashflow) / parseFloat(growth.totalRevenue)) * 100).toFixed(1) + '%' : '--'}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="panel">
+                            <div class="panel-header">
+                                <i class="fas fa-scale-balanced"></i>
+                                <span>Balance Sheet Highlights</span>
+                            </div>
+                            <div class="panel-content" style="padding: 0;">
+                                <table class="data-table">
+                                    <tbody>
+                                        <tr>
+                                            <td>Total Cash</td>
+                                            <td class="num" style="font-weight: 600; color: var(--green);">${debt.totalCash || '--'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Total Debt</td>
+                                            <td class="num" style="font-weight: 600; color: var(--red);">${debt.totalDebt || '--'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Net Cash</td>
+                                            <td class="num">${debt.netCash || '--'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Shareholders Equity</td>
+                                            <td class="num">${data.balanceSheet?.stockholdersEquity || '--'}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                return `<div class="error-msg">Failed to load financials for ${ticker}: ${e.message}</div>`;
+            }
+        }
+
+        async function cmdETF() {
+            const etfs = [
+                { symbol: 'ARKK', name: 'ARK Innovation', theme: 'Disruptive Tech' },
+                { symbol: 'ARKG', name: 'ARK Genomic', theme: 'Genomics' },
+                { symbol: 'UFO', name: 'Procure Space', theme: 'Space' },
+                { symbol: 'QTUM', name: 'Defiance Quantum', theme: 'Quantum' },
+                { symbol: 'HACK', name: 'Cyber Security', theme: 'Cybersecurity' },
+                { symbol: 'BUZZ', name: 'VanEck Social', theme: 'Social Sentiment' },
+                { symbol: 'WCLD', name: 'WisdomTree Cloud', theme: 'Cloud' },
+                { symbol: 'SMH', name: 'VanEck Semis', theme: 'Semiconductors' },
+                { symbol: 'ICLN', name: 'iShares Clean', theme: 'Clean Energy' },
+                { symbol: 'SKYY', name: 'First Trust Cloud', theme: 'Cloud SW' },
+                { symbol: 'BOTZ', name: 'Global X Robotics', theme: 'AI/Robotics' },
+                { symbol: 'LIT', name: 'Global X Lithium', theme: 'Batteries' },
+                { symbol: 'URA', name: 'Global X Uranium', theme: 'Nuclear' },
+                { symbol: 'MJ', name: 'ETFMG Cannabis', theme: 'Cannabis' },
+                { symbol: 'ESPO', name: 'VanEck Gaming', theme: 'eSports' },
+                { symbol: 'FINX', name: 'Global X Fintech', theme: 'Fintech' }
+            ];
+            
+            let cardsHtml = '';
+            for (const etf of etfs) {
+                try {
+                    const data = await fetchTickerData(etf.symbol);
+                    const mainInfo = data.main_info || {};
+                    const price = mainInfo.currentPrice || 0;
+                    const change = parseChangePercent(mainInfo.oneDayChange);
+                    const colorClass = change >= 0 ? 'up' : 'down';
+                    
+                    cardsHtml += `
+                        <div class="etf-card" onclick="quickCommand('DES ${etf.symbol}')">
+                            <div class="etf-header">
+                                <div>
+                                    <div class="etf-symbol">${etf.symbol}</div>
+                                    <div class="etf-theme">${etf.theme}</div>
+                                </div>
+                                <div class="${colorClass}" style="font-size: 11px; font-weight: 600;">
+                                    ${change >= 0 ? '↑' : '↓'} ${Math.abs(change).toFixed(2)}%
+                                </div>
+                            </div>
+                            <div class="etf-name">${etf.name}</div>
+                            <div class="etf-price">$${price.toFixed(2)}</div>
+                        </div>
+                    `;
+                } catch (e) {
+                    cardsHtml += `
+                        <div class="etf-card" style="opacity: 0.5;">
+                            <div class="etf-header">
+                                <div>
+                                    <div class="etf-symbol">${etf.symbol}</div>
+                                    <div class="etf-theme">${etf.theme}</div>
+                                </div>
+                            </div>
+                            <div class="etf-name">${etf.name}</div>
+                            <div class="etf-price" style="color: var(--text-secondary);">--</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Get news from ARKK
+            let newsHtml = '';
+            try {
+                const newsData = await fetchTickerData('ARKK');
+                const news = (newsData.recent_news || []).slice(0, 10);
+                newsHtml = news.map(n => {
+                    const sentiment = analyzeSentiment(n.title);
+                    const time = new Date(n.pubDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    return `
+                        <div class="news-item">
+                            <div class="news-meta">
+                                <span class="news-time">${time}</span>
+                                <span class="news-source">${n.provider}</span>
+                                <span class="news-sentiment ${sentiment}">${sentiment}</span>
+                            </div>
+                            <div class="news-title">${n.title}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                newsHtml = '<div style="padding: 16px; color: var(--text-secondary);">No news available</div>';
+            }
+            
+            return `
+                <div class="panel">
+                    <div class="panel-header">
+                        <i class="fas fa-layer-group"></i>
+                        <span>Thematic ETFs</span>
+                    </div>
+                    <div class="panel-content">
+                        <div class="etf-grid">
+                            ${cardsHtml}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div class="panel-header">
+                        <i class="fas fa-newspaper"></i>
+                        <span>Thematic ETF News</span>
+                    </div>
+                    <div class="panel-content" style="padding: 0;">
+                        ${newsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function cmdSECF() {
+            const sectors = [
+                { name: 'Technology', etf: 'XLK', icon: 'fa-laptop-code' },
+                { name: 'Healthcare', etf: 'XLV', icon: 'fa-heartbeat' },
+                { name: 'Financials', etf: 'XLF', icon: 'fa-university' },
+                { name: 'Consumer Disc', etf: 'XLY', icon: 'fa-shopping-bag' },
+                { name: 'Communication', etf: 'XLC', icon: 'fa-comments' },
+                { name: 'Industrials', etf: 'XLI', icon: 'fa-industry' },
+                { name: 'Consumer Staples', etf: 'XLP', icon: 'fa-shopping-basket' },
+                { name: 'Energy', etf: 'XLE', icon: 'fa-oil-can' },
+                { name: 'Utilities', etf: 'XLU', icon: 'fa-bolt' },
+                { name: 'Real Estate', etf: 'XLRE', icon: 'fa-building' },
+                { name: 'Materials', etf: 'XLB', icon: 'fa-hammer' }
+            ];
+            
+            let rows = '';
+            const performanceData = [];
+            
+            for (const sector of sectors) {
+                try {
+                    const data = await fetchTickerData(sector.etf);
+                    const mainInfo = data.main_info || {};
+                    const price = mainInfo.currentPrice || 0;
+                    const change = parseChangePercent(mainInfo.oneDayChange);
+                    const colorClass = change >= 0 ? 'up' : 'down';
+                    const arrow = change >= 0 ? '↑' : '↓';
+                    
+                    rows += `
+                        <tr>
+                            <td><i class="fas ${sector.icon}" style="color: var(--orange); margin-right: 8px;"></i><strong>${sector.name}</strong></td>
+                            <td class="symbol">${sector.etf}</td>
+                            <td class="num">$${price.toFixed(2)}</td>
+                            <td class="num ${colorClass}">${arrow} ${Math.abs(change).toFixed(2)}%</td>
+                            <td>
+                                <span class="perf-bar">
+                                    <span class="perf-fill ${colorClass}" style="width: ${Math.min(Math.abs(change) * 20, 100)}%"></span>
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                    performanceData.push({ name: sector.name, change, colorClass });
+                } catch (e) {
+                    rows += `
+                        <tr>
+                            <td><i class="fas ${sector.icon}" style="color: var(--text-secondary); margin-right: 8px;"></i>${sector.name}</td>
+                            <td class="symbol">${sector.etf}</td>
+                            <td class="num">--</td>
+                            <td class="num">--</td>
+                            <td>--</td>
+                        </tr>
+                    `;
+                }
+            }
+            
+            // Sort for top/bottom performers
+            performanceData.sort((a, b) => b.change - a.change);
+            const top3 = performanceData.slice(0, 3);
+            const bottom3 = performanceData.slice(-3).reverse();
+            
+            return `
+                <div class="panel">
+                    <div class="panel-header">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>Sector Performance</span>
+                    </div>
+                    <div class="panel-content" style="padding: 0;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Sector</th>
+                                    <th>ETF</th>
+                                    <th class="num">Price</th>
+                                    <th class="num">Change</th>
+                                    <th>Perf</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rows}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="two-col">
+                    <div class="panel">
+                        <div class="panel-header" style="background: rgba(0, 208, 132, 0.1); color: var(--green);">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>Top Performers</span>
+                        </div>
+                        <div class="panel-content" style="padding: 0;">
+                            ${top3.map(s => `
+                                <div style="padding: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                                    <span>${s.name}</span>
+                                    <span class="up" style="font-weight: 600;">+${s.change.toFixed(2)}%</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="panel">
+                        <div class="panel-header" style="background: rgba(255, 71, 87, 0.1); color: var(--red);">
+                            <i class="fas fa-arrow-down"></i>
+                            <span>Bottom Performers</span>
+                        </div>
+                        <div class="panel-content" style="padding: 0;">
+                            ${bottom3.map(s => `
+                                <div style="padding: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                                    <span>${s.name}</span>
+                                    <span class="down" style="font-weight: 600;">${s.change.toFixed(2)}%</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function cmdGP() {
+            const assets = [
+                { name: 'S&P 500', ticker: 'SPY', type: 'Equity' },
+                { name: 'NASDAQ 100', ticker: 'QQQ', type: 'Equity' },
+                { name: 'Gold', ticker: 'GLD', type: 'Commodity' },
+                { name: 'Silver', ticker: 'SLV', type: 'Commodity' },
+                { name: 'Crude Oil', ticker: 'USO', type: 'Commodity' },
+                { name: 'US 10Y', ticker: 'TLT', type: 'Bonds' },
+                { name: 'Bitcoin', ticker: 'BTC-USD', type: 'Crypto' },
+                { name: 'Ethereum', ticker: 'ETH-USD', type: 'Crypto' },
+                { name: 'Semiconductors', ticker: 'SOXX', type: 'Sector' },
+                { name: 'Europe', ticker: 'VGK', type: 'International' },
+                { name: 'China', ticker: 'MCHI', type: 'International' },
+                { name: 'Japan', ticker: 'EWJ', type: 'International' }
+            ];
+            
+            let cards = '';
+            
+            for (const asset of assets) {
+                try {
+                    const data = await fetchTickerData(asset.ticker);
+                    const mainInfo = data.main_info || {};
+                    const price = mainInfo.currentPrice || 0;
+                    const change = parseChangePercent(mainInfo.oneDayChange);
+                    
+                    let heatClass = 'heatmap-neutral';
+                    if (change > 0.5) heatClass = 'heatmap-positive';
+                    else if (change < -0.5) heatClass = 'heatmap-negative';
+                    
+                    const colorClass = change >= 0 ? 'up' : 'down';
+                    
+                    cards += `
+                        <div class="etf-card ${heatClass}">
+                            <div class="etf-header">
+                                <div>
+                                    <div style="font-size: 9px; color: var(--text-secondary); text-transform: uppercase;">${asset.type}</div>
+                                    <div class="etf-symbol">${asset.name}</div>
+                                </div>
+                            </div>
+                            <div class="etf-price">$${price > 1000 ? price.toFixed(0) : price.toFixed(2)}</div>
+                            <div class="etf-change ${colorClass}">
+                                ${change >= 0 ? '↑' : '↓'} ${Math.abs(change).toFixed(2)}%
+                            </div>
+                        </div>
+                    `;
+                } catch (e) {
+                    cards += `
+                        <div class="etf-card" style="opacity: 0.5;">
+                            <div class="etf-header">
+                                <div>
+                                    <div style="font-size: 9px; color: var(--text-secondary); text-transform: uppercase;">${asset.type}</div>
+                                    <div class="etf-symbol">${asset.name}</div>
+                                </div>
+                            </div>
+                            <div class="etf-price" style="color: var(--text-secondary);">--</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            return `
+                <div class="panel">
+                    <div class="panel-header">
+                        <i class="fas fa-fire"></i>
+                        <span>Global Asset Performance</span>
+                    </div>
+                    <div class="panel-content">
+                        <div class="etf-grid" style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));">
+                            ${cards}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function cmdTOP() {
+            const tickers = ['SPY', 'QQQ', 'DIA'];
+            let allNews = [];
+            
+            for (const ticker of tickers) {
+                try {
+                    const data = await fetchTickerData(ticker);
+                    if (data.recent_news) {
+                        allNews = allNews.concat(data.recent_news.map(n => ({ ...n, source: ticker })));
+                    }
+                } catch (e) {}
+            }
+            
+            allNews.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+            const uniqueNews = allNews.slice(0, 10);
+            
+            const newsHtml = uniqueNews.map(n => {
+                const sentiment = analyzeSentiment(n.title);
+                const time = new Date(n.pubDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                const sourceColor = n.source === 'SPY' ? '#3b82f6' : n.source === 'QQQ' ? '#8b5cf6' : '#eab308';
+                return `
+                    <div class="news-item">
+                        <div class="news-meta">
+                            <span style="color: ${sourceColor}; font-weight: 600;">${n.source}</span>
+                            <span class="news-time">${time}</span>
+                            <span class="news-sentiment ${sentiment}">${sentiment}</span>
+                        </div>
+                        <div class="news-title">${n.title}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            return `
+                <div class="panel">
+                    <div class="panel-header">
+                        <i class="fas fa-newspaper"></i>
+                        <span>Market News</span>
+                        <span style="margin-left: auto; font-size: 10px; color: var(--text-secondary);">SPY | QQQ | DIA</span>
+                    </div>
+                    <div class="panel-content" style="padding: 0;">
+                        ${newsHtml || '<div style="padding: 16px; color: var(--text-secondary);">No news available</div>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function cmdECO() {
+            const events = [
+                { date: '2024-02-08', time: '08:30', country: 'US', event: 'Initial Jobless Claims', impact: 'MEDIUM', actual: '218K', forecast: '220K', previous: '224K' },
+                { date: '2024-02-08', time: '10:00', country: 'US', event: 'Wholesale Inventories', impact: 'LOW', actual: '0.4%', forecast: '0.2%', previous: '0.0%' },
+                { date: '2024-02-09', time: '08:30', country: 'US', event: 'Non-Farm Payrolls', impact: 'HIGH', actual: '--', forecast: '185K', previous: '216K' },
+                { date: '2024-02-09', time: '08:30', country: 'US', event: 'Unemployment Rate', impact: 'HIGH', actual: '--', forecast: '3.8%', previous: '3.7%' },
+                { date: '2024-02-13', time: '08:30', country: 'US', event: 'CPI MoM', impact: 'HIGH', actual: '--', forecast: '0.2%', previous: '0.3%' }
+            ];
+            
+            const impactColors = {
+                HIGH: 'background: rgba(255, 71, 87, 0.2); color: var(--red);',
+                MEDIUM: 'background: rgba(255, 165, 2, 0.2); color: var(--yellow);',
+                LOW: 'background: rgba(160, 160, 160, 0.2); color: var(--text-secondary);'
+            };
+            
+            return `
+                <div class="panel">
+                    <div class="panel-header">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Economic Calendar</span>
+                    </div>
+                    <div class="panel-content" style="padding: 0;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Country</th>
+                                    <th>Event</th>
+                                    <th>Impact</th>
+                                    <th class="num">Actual</th>
+                                    <th class="num">Forecast</th>
+                                    <th class="num">Previous</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${events.map(e => `
+                                    <tr>
+                                        <td>${e.date}</td>
+                                        <td>${e.time}</td>
+                                        <td style="color: var(--orange); font-weight: 600;">${e.country}</td>
+                                        <td>${e.event}</td>
+                                        <td><span style="${impactColors[e.impact]} padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 600;">${e.impact}</span></td>
+                                        <td class="num" style="${e.actual !== '--' ? 'color: var(--orange); font-weight: 600;' : ''}">${e.actual}</td>
+                                        <td class="num">${e.forecast}</td>
+                                        <td class="num" style="color: var(--text-secondary);">${e.previous}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showHelp() {
+            return `
+                <div class="panel">
+                    <div class="panel-header">
+                        <i class="fas fa-question-circle"></i>
+                        <span>Command Reference</span>
+                    </div>
+                    <div class="panel-content">
+                        <div class="two-col">
+                            <div>
+                                <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; color: var(--orange);">Market Data</div>
+                                <table class="data-table">
+                                    <tbody>
+                                        <tr><td style="color: var(--text-secondary); width: 100px;">WEI</td><td>World Equity Indices</td></tr>
+                                        <tr><td style="color: var(--text-secondary);">GP</td><td>Global Asset Performance</td></tr>
+                                        <tr><td style="color: var(--text-secondary);">ECO</td><td>Economic Calendar</td></tr>
+                                        <tr><td style="color: var(--text-secondary);">TOP</td><td>Market News</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; color: var(--orange);">Equity Analysis</div>
+                                <table class="data-table">
+                                    <tbody>
+                                        <tr><td style="color: var(--text-secondary); width: 100px;">DES [t]</td><td>Company Description</td></tr>
+                                        <tr><td style="color: var(--text-secondary);">FA [t]</td><td>Financial Analysis</td></tr>
+                                        <tr><td style="color: var(--text-secondary);">SECF</td><td>Sector Performance</td></tr>
+                                        <tr><td style="color: var(--text-secondary);">ETF</td><td>Thematic ETFs</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Helper functions
+        function analyzeSentiment(title) {
+            const positive = ['surge', 'rally', 'gain', 'rise', 'boost', 'strong', 'beat', 'growth', 'record', 'high', 'bull', 'outperform', 'jump', 'soar'];
+            const negative = ['fall', 'drop', 'decline', 'crash', 'bear', 'weak', 'miss', 'low', 'concern', 'risk', 'underperform', 'sell', 'plunge', 'tumble'];
+            const titleLower = title.toLowerCase();
+            if (positive.some(w => titleLower.includes(w))) return 'positive';
+            if (negative.some(w => titleLower.includes(w))) return 'negative';
+            return 'neutral';
+        }
+
+        function setupAutocomplete() {
+            const commands = ['WEI', 'GP', 'TOP', 'ECO', 'SECF', 'INDU', 'RV', 'DES', 'HP', 'FA', 'CHART', 'ETF', 'HELP'];
+            const tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA', 'NFLX', 'AMD', 'INTC', 'JPM', 'BAC', 'XOM', 'JNJ', 'ARKK', 'XLK', 'XLF'];
+            const input = document.getElementById('command-input');
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const val = input.value.toUpperCase().trim();
+                    if (!val.includes(' ')) {
+                        const match = commands.find(c => c.startsWith(val));
+                        if (match) input.value = match + (['DES', 'FA', 'HP', 'RV', 'CHART'].includes(match) ? ' ' : '');
+                    } else {
+                        const [cmd, ticker] = val.split(' ');
+                        if (ticker) {
+                            const match = tickers.find(t => t.startsWith(ticker));
+                            if (match) input.value = cmd + ' ' + match;
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
